@@ -15,7 +15,7 @@ import (
 )
 
 var zHeader = []byte{31, 139, 8, 0, 0, 0, 0, 0, 0, 3}
-var demoHeader = []byte{83, 65, 85, 69, 82, 66, 82, 65, 84, 69, 78, 95, 68, 69, 77, 79, 1, 0, 0, 0, 3, 1, 0, 0}
+var demoHeader = []byte{83, 65, 85, 69, 82, 66, 82, 65, 84, 69, 78, 95, 68, 69, 77, 79, 1, 0, 0, 0, 4, 1, 0, 0}
 var gunsDamage = []int{50, 200, 30, 120, 100, 90, 35}
 
 func main() {
@@ -58,7 +58,8 @@ func main() {
 			"Suicides", "TotalShots", "ShotsDealt", "FistDamage", "FistDamageDealt", "ShotgunDamage", "ShotgunDamageDealt", "ChaingunDamage", "ChaingunDamageDealt",
 			"RocketLauncherDamage", "RocketLauncherDamageDealt", "RifleDamage", "RifleDamageDealt", "GrenadeLauncherDamage", "GrenadeLauncherDamageDealt",
 			"PistolDamage", "PistolDamageDealt", "FistShots", "FistShotsDealt", "ShotgunShots", "ShotgunShotsDealt", "ChaingunShots", "ChaingunShotsDealt",
-			"RocketLauncherShots", "RocketLauncherShotsDealt", "RifleShots", "RifleShotsDealt", "GrenadeLauncherShots", "GrenadeLauncherShotsDealt", "PistolShots", "PistolShotsDealt"}
+			"RocketLauncherShots", "RocketLauncherShotsDealt", "RifleShots", "RifleShotsDealt", "GrenadeLauncherShots", "GrenadeLauncherShotsDealt", "PistolShots", "PistolShotsDealt",
+			"FlagsScored", "FlagsResetted", "FlagsDropped"}
 		fmt.Fprintf(of, "%s\n", strings.Join(headers, "\t"))
 
 		for _, file := range files {
@@ -69,7 +70,7 @@ func main() {
 
 			g := Game{}
 			g.Time = info.ModTime().UnixNano() / int64(time.Second)
-			g.Players = make([]Player, 64)
+			g.Players = make([]Player, 128)
 
 			f, err := os.Open(file)
 			if err != nil {
@@ -116,17 +117,18 @@ func main() {
 			}
 
 			for _, p := range g.Players {
-				if !p.Connected || ((p.State < 0 || p.State > 4) && p.DamageDealt == 0) {
+				if !p.Connected || (p.State < 0 || p.State > 4) || p.DamageDealt == 0 {
 					continue
 				}
 
-				fmt.Fprintf(of, "%d\t%d\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d", g.Time, g.Mode, g.Map, p.Name, p.Frags, p.Deaths, p.Damage, p.DamageDealt, p.Suicides, p.TotalShots, p.ShotsDealt)
+				fmt.Fprintf(of, "%d\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d", g.Time, g.Mode, g.Map, p.Name, p.Team, p.Frags, p.Deaths, p.Damage, p.DamageDealt, p.Suicides, p.TotalShots, p.ShotsDealt)
 				for i := 0; i < 7; i++ {
 					fmt.Fprintf(of, "\t%d\t%d", p.WeaponDamage[i], p.WeaponDamageDealt[i])
 				}
 				for i := 0; i < 7; i++ {
 					fmt.Fprintf(of, "\t%d\t%d", p.WeaponShots[i], p.WeaponShotsDealt[i])
 				}
+				fmt.Fprintf(of, "\t%d\t%d\t%d", p.FlagsScored, p.FlagsResetted, p.FlagsDropped)
 				fmt.Fprintln(of)
 			}
 		}
@@ -197,6 +199,7 @@ type Game struct {
 
 type Player struct {
 	Name              string
+	Team              string
 	Frags             int
 	Deaths            int
 	Damage            int
@@ -209,8 +212,12 @@ type Player struct {
 	ShotsDealt        int
 	WeaponShots       [7]int
 	WeaponShotsDealt  [7]int
+	FlagsScored       int
+	FlagsDropped      int
+	FlagsResetted     int
 	Connected         bool
 	State             int
+	Model             int
 }
 
 func parseMessage(msg *[]byte, g *Game) {
@@ -220,7 +227,8 @@ func parseMessage(msg *[]byte, g *Game) {
 	switch msgType {
 	case 2: // N_WELCOME
 		for p.Pos < len(*p.Data)-1 {
-			switch p.GetInt() {
+			t := p.GetInt()
+			switch t {
 			case 22: // N_MAPCHANGE
 				g.Map = p.GetString()
 				g.Mode = p.GetInt()
@@ -277,9 +285,11 @@ func parseMessage(msg *[]byte, g *Game) {
 			case 3: // N_INITCLIENT
 				cn := p.GetInt()
 				name := p.GetString()
-				p.GetString()
-				p.GetInt()
+				team := p.GetString()
+				model := p.GetInt()
 				g.Players[cn].Name = name
+				g.Players[cn].Team = team
+				g.Players[cn].Model = model
 				g.Players[cn].Connected = true
 			}
 		}
@@ -339,6 +349,30 @@ func parseMessage(msg *[]byte, g *Game) {
 		if victim == attacker {
 			g.Players[attacker].Suicides++
 		}
+	case 79: // N_TAKEFLAG
+	case 80: // N_RETURNFLAG
+		cn := p.GetInt()
+		p.GetInt()
+		p.GetInt()
+		g.Players[cn].FlagsResetted += 1
+	case 84: // N_DROPFLAG
+		cn := p.GetInt()
+		for i := 0; i < 4; i++ {
+			// NOTE: We can get positions here
+			p.GetInt()
+		}
+		g.Players[cn].FlagsDropped += 1
+	case 85: // N_SCOREFLAG
+		ocn := p.GetInt()
+		p.GetInt() // relayflag
+		p.GetInt() // relayversion
+		p.GetInt() // goalflag
+		p.GetInt() // goalversion
+		p.GetInt() // goalspawn
+		p.GetInt() // team
+		p.GetInt() // score
+		p.GetInt() // oflags
+		g.Players[ocn].FlagsScored += 1
 	}
 }
 
