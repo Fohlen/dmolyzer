@@ -272,7 +272,7 @@ func parseMessage(msg *[]byte, g *Game) {
 				for cn := p.GetInt(); cn != -1; cn = p.GetInt() {
 					g.Players[cn].State = p.GetInt()
 					g.Players[cn].Frags = p.GetInt()
-					for i := 0; i < 14; i++ {
+					for i := 0; i < 15; i++ {
 						p.GetInt()
 					}
 				}
