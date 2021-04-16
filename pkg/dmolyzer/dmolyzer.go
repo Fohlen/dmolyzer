@@ -1,6 +1,7 @@
 package dmolyzer
 
 import (
+	"encoding/binary"
 	"io"
 )
 
@@ -25,6 +26,18 @@ var cube2UniCars = []rune{0, 192, 193, 194, 195, 196, 197, 198, 199, 9, 10, 11, 
 type Packet struct {
 	Data *[]byte
 	Pos  int
+}
+
+func (p *Packet) GetBytes(length int) []byte {
+	buf := (*p.Data)[p.Pos:(p.Pos + length)]
+	p.Pos += length
+	return buf
+}
+
+func (p *Packet) GetByte() byte {
+	b := (*p.Data)[p.Pos]
+	p.Pos++
+	return b
 }
 
 func (p *Packet) GetInt() int {
@@ -62,9 +75,16 @@ type Game struct {
 	CurTime int
 }
 
+type PlayerPosition struct {
+	X int
+	Y int
+	Z int
+}
+
 type Player struct {
 	Name              string
 	Team              string
+	Position          PlayerPosition
 	Frags             int
 	Deaths            int
 	Damage            int
@@ -105,6 +125,38 @@ func ReadNextBytes(file io.Reader, number int) ([]byte, error) {
 	}
 
 	return bytes, nil
+}
+
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+func ParsePositions(msg *[]byte, g *Game) {
+	p := Packet{msg, 0}
+	msgType := p.GetInt()
+
+	if msgType == 4 { // N_POS
+		// NOTE: See a documentation of N_POS and potential things you could include here
+		// https://kb.p1x.pw/np-position-packet/
+		cn := p.GetInt()
+		p.GetByte()
+		flags := p.GetByte()
+		x3 := (flags & (1 << 0)) != 0
+		y3 := (flags & (1 << 1)) != 0
+		z3 := (flags & (1 << 2)) != 0
+		// Unlike for other messages we may have 3-byte integers
+		x := binary.LittleEndian.Uint16(p.GetBytes(2 + boolToInt(x3)))
+		y := binary.LittleEndian.Uint16(p.GetBytes(2 + boolToInt(y3)))
+		z := binary.LittleEndian.Uint16(p.GetBytes(2 + boolToInt(z3)))
+		g.Players[cn].Position.X = int(x)
+		g.Players[cn].Position.Y = int(y)
+		g.Players[cn].Position.Y = int(z)
+		// Discard the remaining information
+		p.Pos = cap(*p.Data)
+	}
 }
 
 func ParseMessage(msg *[]byte, g *Game) {
@@ -262,4 +314,3 @@ func ParseMessage(msg *[]byte, g *Game) {
 		g.Players[ocn].FlagsScored += 1
 	}
 }
-

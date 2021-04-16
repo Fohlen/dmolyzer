@@ -108,7 +108,9 @@ func main() {
 
 				g.CurTime = int(binary.LittleEndian.Uint32(cTime))
 
-				if int(binary.LittleEndian.Uint32(ch)) == 1 {
+				if int(binary.LittleEndian.Uint32(ch)) == 0 {
+					dmolyzer.ParsePositions(&data, &g)
+				} else if int(binary.LittleEndian.Uint32(ch)) == 1 {
 					dmolyzer.ParseMessage(&data, &g)
 				}
 
