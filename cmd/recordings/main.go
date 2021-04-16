@@ -17,16 +17,23 @@ import (
 	"time"
 )
 
-var headers = []string{"Time", "Mode", "Map", "Name", "Team", "Frags", "Deaths", "Damage", "DamageDealt",
-	"Suicides", "TotalShots", "ShotsDealt", "FistDamage", "FistDamageDealt", "ShotgunDamage", "ShotgunDamageDealt", "ChaingunDamage", "ChaingunDamageDealt",
-	"RocketLauncherDamage", "RocketLauncherDamageDealt", "RifleDamage", "RifleDamageDealt", "GrenadeLauncherDamage", "GrenadeLauncherDamageDealt",
-	"PistolDamage", "PistolDamageDealt", "FistShots", "FistShotsDealt", "ShotgunShots", "ShotgunShotsDealt", "ChaingunShots", "ChaingunShotsDealt",
-	"RocketLauncherShots", "RocketLauncherShotsDealt", "RifleShots", "RifleShotsDealt", "GrenadeLauncherShots", "GrenadeLauncherShotsDealt", "PistolShots", "PistolShotsDealt",
-	"FlagsScored", "FlagsResetted", "FlagsDropped"}
+var headers = []string{"Time", "Event", "Name", "Team", "Value"}
+
+func writePlayerLog(currentTime int, of io.Writer, g *game.Game) {
+	for _, p := range g.Players {
+		if !p.Connected || (p.State < 0 || p.State > 4) || p.DamageDealt == 0 {
+			continue
+		}
+
+		fmt.Fprintf(of, "%d\tPosition\t%s\t%s", currentTime, p.Name, p.Team)
+		fmt.Fprintf(of, "\t%d,%d,%d", p.Position.X, p.Position.Y, p.Position.Y)
+		fmt.Fprintln(of)
+	}
+}
 
 func main() {
 	if len(os.Args) < 2 {
-		log.Fatal("Usage: ./statistics file|directory [file|directory [...]]")
+		log.Fatal("Usage: ./recordings file|directory [file|directory [...]]")
 	}
 
 	for _, arg := range os.Args[1:] {
@@ -97,6 +104,8 @@ func main() {
 				log.Fatal("invalid demo header in", file)
 			}
 
+			lastTime := 0
+
 			for {
 				cTime, err := packet.ReadNextBytes(fz, 4)
 				if err == io.EOF {
@@ -108,8 +117,15 @@ func main() {
 
 				g.CurTime = int(binary.LittleEndian.Uint32(cTime))
 
-				if int(binary.LittleEndian.Uint32(ch)) == 1 {
+				if int(binary.LittleEndian.Uint32(ch)) == 0 {
+					parser.ParsePositions(&data, &g)
+				} else if int(binary.LittleEndian.Uint32(ch)) == 1 {
 					parser.ParseMessage(&data, &g)
+				}
+
+				if g.CurTime > (lastTime + 100) {
+					lastTime = g.CurTime
+					writePlayerLog(lastTime, of, &g)
 				}
 
 				if g.CurTime >= g.EndTime {
@@ -117,21 +133,6 @@ func main() {
 				}
 			}
 
-			for _, p := range g.Players {
-				if !p.Connected || (p.State < 0 || p.State > 4) || p.DamageDealt == 0 {
-					continue
-				}
-
-				fmt.Fprintf(of, "%d\t%d\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d", g.Time, g.Mode, g.Map, p.Name, p.Team, p.Frags, p.Deaths, p.Damage, p.DamageDealt, p.Suicides, p.TotalShots, p.ShotsDealt)
-				for i := 0; i < 7; i++ {
-					fmt.Fprintf(of, "\t%d\t%d", p.WeaponDamage[i], p.WeaponDamageDealt[i])
-				}
-				for i := 0; i < 7; i++ {
-					fmt.Fprintf(of, "\t%d\t%d", p.WeaponShots[i], p.WeaponShotsDealt[i])
-				}
-				fmt.Fprintf(of, "\t%d\t%d\t%d", p.FlagsScored, p.FlagsResetted, p.FlagsDropped)
-				fmt.Fprintln(of)
-			}
 		}
 	}
 }

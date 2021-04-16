@@ -8,6 +8,8 @@ import (
 )
 
 var gunsDamage = []int{50, 200, 30, 120, 100, 90, 35}
+var ZHeader = []byte{31, 139, 8, 0, 0, 0, 0, 0, 0, 3}
+var DemoHeader = []byte{83, 65, 85, 69, 82, 66, 82, 65, 84, 69, 78, 95, 68, 69, 77, 79, 1, 0, 0, 0, 4, 1, 0, 0}
 
 func ParsePositions(msg *[]byte, g *game.Game) {
 	p := packet.Packet{msg, 0}
@@ -172,7 +174,7 @@ func ParseMessage(msg *[]byte, g *game.Game) {
 	case 84: // N_DROPFLAG
 		cn := p.GetInt()
 		for i := 0; i < 4; i++ {
-			// NOTE: We can get positions here
+			// NOTE: We can get recordings here
 			p.GetInt()
 		}
 		g.Players[cn].FlagsDropped += 1
