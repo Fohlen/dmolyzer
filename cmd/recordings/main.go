@@ -104,7 +104,7 @@ func main() {
 				log.Fatal("invalid demo header in", file)
 			}
 
-			lastTime := 0
+			var lastTime int
 
 			for {
 				cTime, err := packet.ReadNextBytes(fz, 4)
@@ -116,6 +116,9 @@ func main() {
 				data, _ := packet.ReadNextBytes(fz, int(binary.LittleEndian.Uint32(len)))
 
 				g.CurTime = int(binary.LittleEndian.Uint32(cTime))
+				if lastTime == 0 {
+					lastTime = g.CurTime
+				}
 
 				if int(binary.LittleEndian.Uint32(ch)) == 0 {
 					parser.ParsePositions(&data, &g)
@@ -123,7 +126,7 @@ func main() {
 					parser.ParseMessage(&data, &g)
 				}
 
-				if g.CurTime > (lastTime + 100) {
+				if g.CurTime > (lastTime + 1000) {
 					lastTime = g.CurTime
 					writePlayerLog(lastTime, of, &g)
 				}
