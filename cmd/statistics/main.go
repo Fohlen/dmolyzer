@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"compress/flate"
-	"dmolyzer/pkg/dmolyzer"
+	"dmolyzer/pkg/game"
+	"dmolyzer/pkg/packet"
+	"dmolyzer/pkg/parser"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -69,9 +71,9 @@ func main() {
 				log.Fatal(err)
 			}
 
-			g := dmolyzer.Game{}
+			g := game.Game{}
 			g.Time = info.ModTime().UnixNano() / int64(time.Second)
-			g.Players = make([]dmolyzer.Player, 128)
+			g.Players = make([]game.Player, 128)
 
 			f, err := os.Open(file)
 			if err != nil {
@@ -79,7 +81,7 @@ func main() {
 			}
 			defer f.Close()
 
-			fileHeader, _ := dmolyzer.ReadNextBytes(f, 10)
+			fileHeader, _ := packet.ReadNextBytes(f, 10)
 
 			if bytes.Compare(zHeader, fileHeader) != 0 {
 				log.Fatal("invalid zlib header in", file)
@@ -91,27 +93,27 @@ func main() {
 			}
 			defer fz.Close()
 
-			zDemoHeader, _ := dmolyzer.ReadNextBytes(fz, 24)
+			zDemoHeader, _ := packet.ReadNextBytes(fz, 24)
 
 			if bytes.Compare(demoHeader, zDemoHeader) != 0 {
 				log.Fatal("invalid demo header in", file)
 			}
 
 			for {
-				cTime, err := dmolyzer.ReadNextBytes(fz, 4)
+				cTime, err := packet.ReadNextBytes(fz, 4)
 				if err == io.EOF {
 					break
 				}
-				ch, _ := dmolyzer.ReadNextBytes(fz, 4)
-				len, _ := dmolyzer.ReadNextBytes(fz, 4)
-				data, _ := dmolyzer.ReadNextBytes(fz, int(binary.LittleEndian.Uint32(len)))
+				ch, _ := packet.ReadNextBytes(fz, 4)
+				len, _ := packet.ReadNextBytes(fz, 4)
+				data, _ := packet.ReadNextBytes(fz, int(binary.LittleEndian.Uint32(len)))
 
 				g.CurTime = int(binary.LittleEndian.Uint32(cTime))
 
 				if int(binary.LittleEndian.Uint32(ch)) == 0 {
-					dmolyzer.ParsePositions(&data, &g)
+					parser.ParsePositions(&data, &g)
 				} else if int(binary.LittleEndian.Uint32(ch)) == 1 {
-					dmolyzer.ParseMessage(&data, &g)
+					parser.ParseMessage(&data, &g)
 				}
 
 				if g.CurTime >= g.EndTime {
