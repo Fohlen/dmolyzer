@@ -21,7 +21,7 @@ var headers = []string{"Time", "Event", "Name", "Team", "Value"}
 
 func writePlayerLog(currentTime int, of io.Writer, g *game.Game) {
 	for _, p := range g.Players {
-		if !p.Connected || (p.State < 0 || p.State > 4) || p.DamageDealt == 0 {
+		if !p.Connected || (p.State >= 4) {
 			continue
 		}
 
@@ -126,7 +126,7 @@ func main() {
 					parser.ParseMessage(&data, &g)
 				}
 
-				if g.CurTime > (lastTime + 1000) {
+				if g.CurTime > (lastTime + 10000) {
 					lastTime = g.CurTime
 					writePlayerLog(lastTime, of, &g)
 				}

@@ -118,7 +118,7 @@ func main() {
 			}
 
 			for _, p := range g.Players {
-				if !p.Connected || (p.State < 0 || p.State > 4) || p.DamageDealt == 0 {
+				if !p.Connected || (p.State >= 4) {
 					continue
 				}
 
