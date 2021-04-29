@@ -53,7 +53,7 @@ func ParseMessage(msg *[]byte, g *game.Game) {
 				timeLeft := p.GetInt()
 				g.EndTime = g.CurTime + timeLeft*1000
 			case 36: // N_ITEMLIST
-				for p.GetInt() != -1 {
+				for p.GetInt() != -1 && !p.Overread() {
 					p.GetInt()
 				}
 			case 58: // N_CURRENTMASTER
@@ -85,10 +85,10 @@ func ParseMessage(msg *[]byte, g *game.Game) {
 				p.GetInt()
 				p.GetInt()
 			case 37: // N_RESUME
-				for cn := p.GetInt(); cn != -1; cn = p.GetInt() {
+				for cn := p.GetInt(); cn != -1 && !p.Overread(); cn = p.GetInt() {
 					g.Players[cn].State = p.GetInt()
 					g.Players[cn].Frags = p.GetInt()
-					for i := 0; i < 15; i++ {
+					for i := 0; i < 14; i++ {
 						p.GetInt()
 					}
 				}

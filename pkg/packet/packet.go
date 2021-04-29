@@ -50,6 +50,11 @@ func (p *Packet) GetInt() int {
 	return result
 }
 
+func (p *Packet) Overread() bool {
+	var b = (*p.Data)[p.Pos]
+	return (b & 1 << 0) == b
+}
+
 func (p *Packet) GetString() string {
 	result := ""
 	for ; p.Pos < len(*p.Data); p.Pos++ {
