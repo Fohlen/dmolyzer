@@ -56,6 +56,7 @@ func main() {
 				files = append(files, filepath.Join(arg, fileinfo.Name()))
 			}
 
+			fname = filepath.Base(fpath)
 			outFileName = filepath.Join(fpath, fname+".tsv")
 		} else {
 			files = append(files, filepath.Join(fpath, arg))
